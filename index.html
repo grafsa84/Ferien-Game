@@ -1,0 +1,878 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ferien Jump and Run</title>
+    <!-- Tailwind CSS CDN für allgemeines Styling und Responsivität -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Tone.js für Musikgenerierung -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.min.js"></script>
+    <style>
+        /* Inter Font importieren */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #e0f2f7; /* Heller blauer Hintergrund */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            overflow: hidden; /* Verhindert Scrollen des Bodys */
+        }
+
+        .game-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #ffffff;
+            border-radius: 1.5rem; /* Abgerundete Ecken */
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            padding: 1rem;
+            margin: 1rem;
+            max-width: 95%; /* Responsive Breite */
+            box-sizing: border-box;
+        }
+
+        canvas {
+            background-color: #87ceeb; /* Himmelblau */
+            border: 4px solid #4a90e2; /* Blauer Rand */
+            border-radius: 1rem; /* Abgerundete Ecken für Canvas */
+            display: block;
+            touch-action: none; /* Verhindert Standard-Touch-Aktionen wie Scrollen */
+            width: 100%; /* Canvas responsiv machen */
+            max-width: 700px; /* Maximale Breite für grössere Bildschirme */
+            height: auto; /* Seitenverhältnis beibehalten */
+            aspect-ratio: 16 / 9; /* Standard-Spiel-Seitenverhältnis */
+        }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin-top: 1rem;
+            width: 100%;
+            max-width: 700px;
+        }
+
+        .control-button {
+            background-color: #60a5fa; /* Blauer Button */
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.75rem; /* Abgerundete Ecken */
+            border: none;
+            font-size: 1.2rem;
+            font-weight: bold;
+            cursor: pointer;
+            flex: 1; /* Platz gleichmässig verteilen */
+            max-width: 150px; /* Button-Breite begrenzen */
+            transition: background-color 0.2s, transform 0.1s;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .control-button:hover {
+            background-color: #3b82f6; /* Dunkleres Blau beim Hover */
+            transform: translateY(-2px);
+        }
+
+        .control-button:active {
+            background-color: #2563eb; /* Noch dunkler beim Aktivieren */
+            transform: translateY(0);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .game-info {
+            margin-top: 1rem;
+            font-size: 1.1rem;
+            color: #333;
+            text-align: center;
+        }
+
+        /* Styling für Nachrichtenbox (Game Over/Sieg) */
+        .message-box-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+        .message-box-overlay.visible {
+            opacity: 1;
+            visibility: visible;
+        }
+        .message-box-content {
+            background-color: #ffffff;
+            padding: 2.5rem;
+            border-radius: 1.5rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            text-align: center;
+            max-width: 90%;
+            transform: scale(0.9);
+            transition: transform 0.3s ease;
+        }
+        .message-box-overlay.visible .message-box-content {
+            transform: scale(1);
+        }
+        .message-box-content h2 {
+            font-size: 2rem;
+            font-weight: bold;
+            margin-bottom: 1rem;
+            color: #2c5282;
+        }
+        .message-box-content p {
+            font-size: 1.2rem;
+            margin-bottom: 1.5rem;
+            color: #555;
+        }
+        .message-box-content button {
+            background-color: #4ade80; /* Grüner Button */
+            color: white;
+            padding: 0.8rem 2rem;
+            border-radius: 0.75rem;
+            border: none;
+            font-size: 1.1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.2s, transform 0.1s;
+        }
+        .message-box-content button:hover {
+            background-color: #22c55e; /* Dunkleres Grün beim Hover */
+            transform: translateY(-2px);
+        }
+
+        /* Responsive Anpassungen für kleinere Bildschirme */
+        @media (max-width: 640px) {
+            .game-container {
+                padding: 0.5rem;
+                margin: 0.5rem;
+            }
+            canvas {
+                border-width: 2px;
+                border-radius: 0.75rem;
+            }
+            .controls {
+                gap: 0.5rem;
+                margin-top: 0.75rem;
+            }
+            .control-button {
+                padding: 0.6rem 1rem;
+                font-size: 1rem;
+                border-radius: 0.6rem;
+            }
+            .game-info {
+                font-size: 0.9rem;
+                margin-top: 0.75rem;
+            }
+            .message-box-content {
+                padding: 1.5rem;
+                border-radius: 1rem;
+            }
+            .message-box-content h2 {
+                font-size: 1.5rem;
+            }
+            .message-box-content p {
+                font-size: 1rem;
+            }
+            .message-box-content button {
+                padding: 0.6rem 1.5rem;
+                font-size: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <canvas id="gameCanvas"></canvas>
+        <div class="controls">
+            <button id="leftButton" class="control-button">◀️ Links</button>
+            <button id="jumpButton" class="control-button">⬆️ Springen</button>
+            <button id="rightButton" class="control-button">▶️ Rechts</button>
+        </div>
+        <div class="game-info">
+            <p>Sammle die Münzen 🟡 und erreiche das Ziel! 🏁</p>
+            <p>Münzen: <span id="scoreDisplay">0</span></p>
+            <p id="musicInstruction" style="font-size: 0.9em; color: #666;">(Klicke oder drücke eine Taste, um Musik zu starten!)</p>
+        </div>
+    </div>
+
+    <!-- Nachrichtenbox Overlay -->
+    <div id="messageBoxOverlay" class="message-box-overlay">
+        <div class="message-box-content">
+            <h2 id="messageBoxTitle"></h2>
+            <p id="messageBoxText"></p>
+            <button id="messageBoxButton">Nochmal spielen</button>
+        </div>
+    </div>
+
+    <script>
+        // Canvas und 2D Rendering Kontext abrufen
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Steuerungsbuttons abrufen
+        const leftButton = document.getElementById('leftButton');
+        const jumpButton = document.getElementById('jumpButton');
+        const rightButton = document.getElementById('rightButton');
+        const scoreDisplay = document.getElementById('scoreDisplay');
+        const musicInstruction = document.getElementById('musicInstruction');
+
+
+        // Nachrichtenbox Elemente abrufen
+        const messageBoxOverlay = document.getElementById('messageBoxOverlay');
+        const messageBoxTitle = document.getElementById('messageBoxTitle');
+        const messageBoxText = document.getElementById('messageBoxText');
+        const messageBoxButton = document.getElementById('messageBoxButton');
+
+        // Spieleinstellungen
+        const GRAVITY = 0.5; // Schwerkraft
+        const JUMP_STRENGTH = -10; // Sprunghöhe
+        const MAX_PLAYER_SPEED = 3; // Maximale Spielergeschwindigkeit (reduziert für Sanftheit)
+        const PLAYER_ACCELERATION = 0.3; // Beschleunigung (reduziert für Sanftheit)
+        const PLAYER_FRICTION = 0.85; // Reibung/Verlangsamung (erhöht für Sanftheit)
+        const CAMERA_SPEED_FACTOR = 0.02; // Faktor, wie schnell die Kamera dem Spieler folgt (noch smoother)
+
+        // Spielerobjekt (Kollisionsbox, visuelle Darstellung wird gezeichnet)
+        let player = {
+            x: 50,
+            y: 0,
+            width: 30, // Kollisionsbox Breite
+            height: 40, // Kollisionsbox Höhe (grösser für Strichfigur)
+            velocityX: 0,
+            velocityY: 0,
+            isJumping: false,
+            isGrounded: false,
+            facingRight: true, // Richtung, in die der Spieler schaut
+            animationFrame: 0 // Für einfache Laufanimation
+        };
+
+        // Kamera-Offset für Side-Scrolling
+        let cameraOffsetX = 0;
+
+        // Spielobjekte (Plattformen, Hindernisse, Sammelobjekte, Ziellinie)
+        let gameObjects = []; // Plattformen und Hindernisse
+        let collectibles = []; // Münzen
+        let finishLine = {};
+        let score = 0;
+
+        // Eingabeverarbeitung
+        let keys = {
+            left: false,
+            right: false,
+            jump: false
+        };
+
+        // Tone.js Musik-Setup
+        let synth;
+        let loop;
+        let musicStarted = false; // Flag, um sicherzustellen, dass die Musik nur einmal mit Benutzerinteraktion startet
+
+        function startMusic() {
+            if (musicStarted) return; // Mehrfaches Starten verhindern
+
+            console.log("Versuche Musik zu starten...");
+            // Sicherstellen, dass der Audio-Kontext läuft (erfordert Benutzergeste)
+            Tone.start().then(() => {
+                console.log("AudioContext gestartet. Loop wird eingerichtet.");
+                setupAndStartLoop();
+                musicStarted = true;
+                musicInstruction.style.display = 'none'; // Anweisung ausblenden, sobald Musik startet
+            }).catch(e => console.error("Tone.start() fehlgeschlagen:", e));
+        }
+
+        function setupAndStartLoop() {
+            // Bestehenden Loop stoppen, falls vorhanden
+            if (loop) {
+                loop.stop();
+                loop.dispose();
+            }
+            if (synth) {
+                synth.dispose();
+            }
+
+            // Einfachen Synth für die Melodie erstellen
+            synth = new Tone.PolySynth(Tone.Synth, {
+                oscillator: {
+                    type: "sine" // Einfache Sinuswelle
+                },
+                envelope: {
+                    attack: 0.01,
+                    decay: 0.2,
+                    sustain: 0.5,
+                    release: 1
+                }
+            }).toDestination();
+
+            // Eine einfache, fröhliche Melodie definieren (niederländisch inspiriert)
+            const melody = [
+                "G4", "A4", "B4", "C5", // C-Dur-Tonleiter Teil
+                "G4", "A4", "B4", "C5",
+                "D5", "C5", "B4", "A4",
+                "G4", null, "E4", null, // Einfaches Ende
+                "C4", "E4", "G4", "C5"
+            ];
+            let index = 0;
+
+            // Loop zum Abspielen der Melodie erstellen
+            loop = new Tone.Loop(time => {
+                let note = melody[index % melody.length];
+                if (note) {
+                    synth.triggerAttackRelease(note, "8n", time); // Note für eine Achtelnote abspielen
+                }
+                index++;
+            }, "4n").start(0); // Jede Note dauert eine Viertelnote
+
+            Tone.Transport.bpm.value = 120; // Tempo einstellen
+            Tone.Transport.start(); // Transport starten
+            console.log("Musik spielt.");
+        }
+
+
+        // Funktion zum Anzeigen einer Nachrichtenbox
+        function showMessageBox(title, text) {
+            messageBoxTitle.textContent = title;
+            messageBoxText.textContent = text;
+            messageBoxOverlay.classList.add('visible');
+        }
+
+        // Funktion zum Ausblenden der Nachrichtenbox
+        function hideMessageBox() {
+            messageBoxOverlay.classList.remove('visible');
+        }
+
+        // Funktion zum Zurücksetzen des Spielzustands
+        function resetGame() {
+            player = {
+                x: 50,
+                y: 0,
+                width: 30,
+                height: 40,
+                velocityX: 0,
+                velocityY: 0,
+                isJumping: false,
+                isGrounded: false,
+                facingRight: true,
+                animationFrame: 0
+            };
+            cameraOffsetX = 0;
+            score = 0;
+            scoreDisplay.textContent = score;
+            hideMessageBox();
+            initializeLevel(); // Level für neues Spiel initialisieren
+            // Musik läuft jetzt kontinuierlich, muss hier nicht gestoppt/gestartet werden, es sei denn, sie wurde explizit pausiert
+        }
+
+        // Level-Initialisierung
+        function initializeLevel() {
+            const groundLevel = canvas.height - 50;
+            const totalWorldWidth = 2500; // Erhöhte Weltbreite für mehr Inhalt
+            gameObjects = [];
+
+            // Haupt-durchgehender Bodenpfad
+            gameObjects.push({ x: 0, y: groundLevel, width: totalWorldWidth, height: 50, type: 'ground', color: '#6b8e23' });
+
+            // Vechte-Abschnitte hinzufügen (visuelle Elemente auf dem durchgehenden Boden)
+            gameObjects.push({ x: 200, y: groundLevel, width: 100, height: 50, type: 'visual', color: '#4a90e2' }); // Vechte 1
+            gameObjects.push({ x: 550, y: groundLevel, width: 100, height: 50, type: 'visual', color: '#4a90e2' }); // Vechte 2
+            gameObjects.push({ x: 1200, y: groundLevel, width: 100, height: 50, type: 'visual', color: '#4a90e2' }); // Vechte 3
+            gameObjects.push({ x: 1800, y: groundLevel, width: 100, height: 50, type: 'visual', color: '#4a90e2' }); // Vechte 4
+
+
+            // Schwebende Plattformen (Holzplanken / Erdtöne)
+            gameObjects.push({ x: 200, y: groundLevel - 80, width: 60, height: 20, type: 'platform', color: '#8b4513' });
+            gameObjects.push({ x: 450, y: groundLevel - 120, width: 80, height: 20, type: 'platform', color: '#8b4513' });
+            gameObjects.push({ x: 700, y: groundLevel - 60, width: 50, height: 20, type: 'platform', color: '#8b4513' });
+            gameObjects.push({ x: 950, y: groundLevel - 100, width: 90, height: 20, type: 'platform', color: '#8b4513' });
+            gameObjects.push({ x: 1300, y: groundLevel - 150, width: 100, height: 20, type: 'platform', color: '#8b4513' });
+            gameObjects.push({ x: 1550, y: groundLevel - 80, width: 70, height: 20, type: 'platform', color: '#8b4513' });
+            gameObjects.push({ x: 2000, y: groundLevel - 100, width: 80, height: 20, type: 'platform', color: '#8b4513' });
+
+
+            // Hindernisse (Büsche / Steine) - auf dem durchgehenden Boden platziert
+            gameObjects.push({ x: 380, y: groundLevel - 30, width: 30, height: 30, type: 'obstacle', emoji: '🌳', emojiSize: 35 });
+            gameObjects.push({ x: 800, y: groundLevel - 30, width: 30, height: 30, type: 'obstacle', emoji: '🪨', emojiSize: 35 });
+            gameObjects.push({ x: 1100, y: groundLevel - 30, width: 30, height: 30, type: 'obstacle', emoji: '�', emojiSize: 35 });
+            gameObjects.push({ x: 1450, y: groundLevel - 30, width: 30, height: 30, type: 'obstacle', emoji: '🪨', emojiSize: 35 });
+            gameObjects.push({ x: 1700, y: groundLevel - 30, width: 30, height: 30, type: 'obstacle', emoji: '🌳', emojiSize: 35 });
+            gameObjects.push({ x: 2100, y: groundLevel - 30, width: 30, height: 30, type: 'obstacle', emoji: '🪨', emojiSize: 35 });
+
+
+            // Sammelobjekte (Münzen) - auf dem Boden und Plattformen platziert
+            collectibles = [
+                { x: 80, y: groundLevel - 30, collected: false, emoji: '🟡', emojiSize: 20 },
+                { x: 230, y: groundLevel - 110, collected: false, emoji: '🟡', emojiSize: 20 }, // Auf schwebender Plattform
+                { x: 480, y: groundLevel - 150, collected: false, emoji: '🟡', emojiSize: 20 }, // Auf schwebender Plattform
+                { x: 720, y: groundLevel - 90, collected: false, emoji: '🟡', emojiSize: 20 }, // Auf schwebender Plattform
+                { x: 980, y: groundLevel - 130, collected: false, emoji: '🟡', emojiSize: 20 }, // Auf schwebender Plattform
+                { x: 1350, y: groundLevel - 180, collected: false, emoji: '🟡', emojiSize: 20 }, // Auf schwebender Plattform
+                { x: 1650, y: groundLevel - 30, collected: false, emoji: '🟡', emojiSize: 20 },
+                { x: 1780, y: groundLevel - 30, collected: false, emoji: '🟡', emojiSize: 20 },
+                { x: 2030, y: groundLevel - 130, collected: false, emoji: '🟡', emojiSize: 20 }, // Auf schwebender Plattform
+                { x: 2200, y: groundLevel - 30, collected: false, emoji: '🟡', emojiSize: 20 },
+            ];
+
+            // Ziellinie - am Ende des durchgehenden Bodens platziert
+            finishLine = { x: totalWorldWidth - 50, y: groundLevel - 50, width: 20, height: 50, emoji: '🏁', emojiSize: 50 }; // Karierte Flagge
+        }
+
+        // Canvas-Grösse basierend auf Fenstergrösse anpassen
+        function resizeCanvas() {
+            const containerWidth = canvas.parentElement.clientWidth;
+            canvas.width = Math.min(containerWidth, 700); // Maximale Breite 700px, sonst an Container anpassen
+            canvas.height = canvas.width * (9 / 16); // 16:9 Seitenverhältnis beibehalten
+            initializeLevel(); // Level bei Grössenänderung neu initialisieren, um Objektpositionen anzupassen
+        }
+
+        // Grösse bei Laden und bei Fenstergrössenänderung anpassen
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas(); // Initialer Aufruf
+
+        // Zeichenfunktionen
+        function drawStickFigure(x, y, width, height, facingRight, animationFrame) {
+            ctx.save();
+            ctx.translate(x - cameraOffsetX + width / 2, y + height / 2); // Ursprung zur Mitte des Spielers verschieben
+            if (!facingRight) {
+                ctx.scale(-1, 1); // Horizontal spiegeln, wenn nach links schauend
+            }
+
+            ctx.strokeStyle = '#333'; // Dunkelgraue Farbe für Strichfigur
+            ctx.lineWidth = 2;
+            ctx.lineCap = 'round';
+
+            // Kopf (Kreis)
+            ctx.beginPath();
+            ctx.arc(0, -height / 2 + 5, 8, 0, Math.PI * 2);
+            ctx.stroke();
+
+            // Körper (vertikale Linie)
+            ctx.beginPath();
+            ctx.moveTo(0, -height / 2 + 13);
+            ctx.lineTo(0, height / 2 - 10);
+            ctx.stroke();
+
+            // Arme (Laufanimation)
+            const armAngle = Math.sin(animationFrame * 0.1) * 0.5; // Armwinkel oszillieren lassen
+            ctx.beginPath();
+            // Rechter Arm (hinten)
+            ctx.moveTo(0, -height / 2 + 15);
+            ctx.lineTo(10 * Math.cos(armAngle), height / 2 - 25 + 10 * Math.sin(armAngle));
+            ctx.stroke();
+
+            // Linker Arm (vorne)
+            ctx.beginPath();
+            ctx.moveTo(0, -height / 2 + 15);
+            ctx.lineTo(-10 * Math.cos(armAngle), height / 2 - 25 - 10 * Math.sin(armAngle));
+            ctx.stroke();
+
+            // Beine (Laufanimation)
+            const legAngle = Math.sin(animationFrame * 0.1 + Math.PI / 2) * 0.7; // Beinwinkel oszillieren lassen
+            ctx.beginPath();
+            // Rechtes Bein (vorne)
+            ctx.moveTo(0, height / 2 - 10);
+            ctx.lineTo(8 * Math.cos(legAngle), height / 2 + 10 + 8 * Math.sin(legAngle));
+            ctx.stroke();
+
+            // Linkes Bein (hinten)
+            ctx.beginPath();
+            ctx.moveTo(0, height / 2 - 10);
+            ctx.lineTo(-8 * Math.cos(legAngle), height / 2 + 10 - 8 * Math.sin(legAngle));
+            ctx.stroke();
+
+            ctx.restore();
+        }
+
+        function drawPlayer() {
+            drawStickFigure(player.x, player.y, player.width, player.height, player.facingRight, player.animationFrame);
+        }
+
+        function drawObject(obj) {
+            if (obj.emoji) {
+                ctx.font = `${obj.emojiSize}px sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(obj.emoji, obj.x - cameraOffsetX + obj.width / 2, obj.y + obj.height / 2);
+            } else {
+                ctx.fillStyle = obj.color;
+                ctx.fillRect(obj.x - cameraOffsetX, obj.y, obj.width, obj.height);
+            }
+        }
+
+        function drawCollectible(collectible) {
+            if (!collectible.collected) {
+                ctx.font = `${collectible.emojiSize}px sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(collectible.emoji, collectible.x - cameraOffsetX, collectible.y);
+            }
+        }
+
+        function drawFinishLine() {
+            ctx.font = `${finishLine.emojiSize}px sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(finishLine.emoji, finishLine.x - cameraOffsetX + finishLine.width / 2, finishLine.y + finishLine.height / 2);
+        }
+
+        function drawSign(x, y, text, fontSize, textColor = 'black', bgColor = 'white') {
+            ctx.save();
+            ctx.translate(x - cameraOffsetX, y);
+            
+            // Hintergrund des Schildes zeichnen (einfaches abgerundetes Rechteck)
+            ctx.font = `${fontSize}px 'Inter', sans-serif`; // Schriftart für Textbreitenmessung einstellen
+            const textWidth = ctx.measureText(text).width;
+            const signWidth = textWidth + 40; // Polsterung hinzufügen
+            const signHeight = fontSize + 20; // Polsterung hinzufügen
+            const cornerRadius = 10;
+
+            ctx.fillStyle = bgColor;
+            ctx.beginPath();
+            ctx.moveTo(cornerRadius, 0);
+            ctx.lineTo(signWidth - cornerRadius, 0);
+            ctx.arcTo(signWidth, 0, signWidth, cornerRadius, cornerRadius);
+            ctx.lineTo(signWidth, signHeight - cornerRadius);
+            ctx.arcTo(signWidth, signHeight, signWidth - cornerRadius, signHeight, cornerRadius);
+            ctx.lineTo(cornerRadius, signHeight);
+            ctx.arcTo(0, signHeight, 0, signHeight - cornerRadius, cornerRadius);
+            ctx.lineTo(0, cornerRadius);
+            ctx.arcTo(0, 0, cornerRadius, 0, cornerRadius);
+            ctx.closePath();
+            ctx.fill();
+
+            // Text zeichnen
+            ctx.fillStyle = textColor;
+            ctx.font = `${fontSize}px 'Inter', sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(text, signWidth / 2, signHeight / 2);
+            ctx.restore();
+        }
+
+        // Funktion zum Zeichnen einer einfachen Achterbahnstrecke
+        function drawRollercoaster(startX, baseY, height, length, trackColor = '#666', carEmoji = '🎢') {
+            ctx.save();
+            ctx.translate(startX - cameraOffsetX, baseY); // Basis am Bodenlevel
+
+            ctx.strokeStyle = trackColor;
+            ctx.lineWidth = 3;
+            ctx.lineCap = 'round';
+
+            // Hauptstreckenlinien zeichnen
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.bezierCurveTo(length * 0.2, -height * 0.5, length * 0.4, -height * 0.8, length * 0.6, -height * 0.5);
+            ctx.bezierCurveTo(length * 0.8, -height * 0.2, length * 0.9, 0, length, 0);
+            ctx.stroke();
+
+            // Stützen zeichnen (vereinfacht)
+            ctx.beginPath();
+            ctx.moveTo(length * 0.2, -height * 0.5);
+            ctx.lineTo(length * 0.2, 20);
+            ctx.moveTo(length * 0.6, -height * 0.5);
+            ctx.lineTo(length * 0.6, 20);
+            ctx.moveTo(length * 0.8, -height * 0.2);
+            ctx.lineTo(length * 0.8, 20);
+            ctx.stroke();
+
+            // Wagen-Emoji auf der Strecke zeichnen
+            ctx.font = '35px sans-serif'; // Grösse für das Wagen-Emoji
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(carEmoji, length * 0.4, -height * 0.7); // Wagen auf der Kurve positionieren
+
+            ctx.restore();
+        }
+
+
+        function drawBackgroundElements() {
+            const groundLevel = canvas.height - 50; // Referenz für Bodenniveau
+
+            // Sonne
+            ctx.font = '50px sans-serif';
+            ctx.fillText('☀️', canvas.width - 70, 70);
+
+            // Wolken (einfache Zeichnung, könnten auch Emojis sein)
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+            ctx.beginPath();
+            ctx.arc(50 - cameraOffsetX * 0.1, 50, 20, 0, Math.PI * 2);
+            ctx.arc(80 - cameraOffsetX * 0.1, 50, 25, 0, Math.PI * 2);
+            ctx.arc(110 - cameraOffsetX * 0.1, 50, 20, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.closePath();
+
+            ctx.beginPath();
+            ctx.arc(canvas.width - 150 - cameraOffsetX * 0.1, 80, 25, 0, Math.PI * 2);
+            ctx.arc(canvas.width - 120 - cameraOffsetX * 0.1, 80, 20, 0, Math.PI * 2);
+            ctx.arc(canvas.width - 90 - cameraOffsetX * 0.1, 80, 25, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.closePath();
+
+            // Entferntes Schloss (Burg Bentheim) - auf Bodenniveau platziert
+            ctx.font = '60px sans-serif';
+            ctx.fillText('🏰', 300 - cameraOffsetX * 0.2, groundLevel - 30); // Y für Bodenniveau angepasst
+
+            // Entfernte Windmühle (Holland-Thema) - auf Bodenniveau platziert
+            ctx.font = '50px sans-serif';
+            ctx.fillText('🌬️', 800 - cameraOffsetX * 0.3, groundLevel - 20); // Y für Bodenniveau angepasst
+            ctx.fillText('🌬️', 1500 - cameraOffsetX * 0.3, groundLevel - 10); // Y für Bodenniveau angepasst
+
+            // Efteling-Elemente - Bedingtes Zeichnen basierend auf Kameraposition
+            const eftelingVisibleX = 1600; // Kamera-X-Position, ab der Efteling-Elemente sichtbar werden
+            if (cameraOffsetX > eftelingVisibleX - canvas.width / 2) { // Anzeigen, wenn sich die Kamera nähert
+                // Achterbahnen
+                drawRollercoaster(1700, groundLevel, 80, 150); // Grössere Achterbahn, Basis am groundLevel
+                drawRollercoaster(1850, groundLevel, 60, 120, '#8a2be2'); // Eine weitere Achterbahn, andere Farbe, Basis am groundLevel
+
+                // Andere Efteling-Attraktionen
+                ctx.font = '50px sans-serif';
+                ctx.fillText('🎠', 1950 - cameraOffsetX * 0.25, groundLevel - 110); // Karussell
+                ctx.fillText('🎡', 2050 - cameraOffsetX * 0.25, groundLevel - 140); // Riesenrad
+            }
+
+            // Tulpen auf dem Boden/Plattformen
+            ctx.font = '25px sans-serif';
+            ctx.fillText('🌷', 180 - cameraOffsetX, groundLevel - 5); // Auf dem Boden
+            ctx.fillText('🌷', 470 - cameraOffsetX, groundLevel - 125); // Auf schwebender Plattform
+            ctx.fillText('🌷', 1320 - cameraOffsetX, groundLevel - 165); // Auf schwebender Plattform
+
+            // Fahrräder auf dem Boden
+            ctx.font = '30px sans-serif';
+            ctx.fillText('🚲', 280 - cameraOffsetX, groundLevel - 10); // Y für Bodenniveau angepasst
+            ctx.fillText('🚲', 780 - cameraOffsetX, groundLevel - 10); // Y für Bodenniveau angepasst
+            ctx.fillText('🚲', 1550 - cameraOffsetX, groundLevel - 10); // Y für Bodenniveau angepasst
+
+            // Tierpark-Tiere auf dem Boden
+            ctx.font = '35px sans-serif';
+            ctx.fillText('🐘', 900 - cameraOffsetX, groundLevel - 15);
+            ctx.fillText('🦒', 950 - cameraOffsetX, groundLevel - 25);
+            ctx.fillText('🦓', 1000 - cameraOffsetX, groundLevel - 10);
+            ctx.fillText('🐒', 1030 - cameraOffsetX, groundLevel - 10); // Affe
+            ctx.fillText('🦁', 920 - cameraOffsetX, groundLevel - 5); // Löwe
+
+
+            // Thematische Schilder
+            drawSign(100, groundLevel - 150, "Willkommen in Nordhorn!", 20, 'white', '#4a90e2'); // Blaues Schild
+            drawSign(250, groundLevel - 130, "Fietse Weg", 18, 'black', '#f0f0f0'); // Helles graues Schild
+            drawSign(600, groundLevel - 130, "Vechtesee", 18, 'white', '#0077be'); // Dunkleres blaues Schild für Vechtesee
+            drawSign(1050, groundLevel - 130, "Tierpark", 18, 'white', '#6b8e23'); // Grünes Schild für Tierpark
+            drawSign(1800, groundLevel - 150, "Efteling-Land", 20, 'white', '#8a2be2'); // Lila Schild für Efteling
+        }
+
+
+        // Kollisionserkennung (AABB - Achsenparallele Bounding Box)
+        function checkCollision(rect1, rect2) {
+            return rect1.x < rect2.x + rect2.width &&
+                   rect1.x + rect1.width > rect2.x &&
+                   rect1.y < rect2.y + rect2.height &&
+                   rect1.y + rect1.height > rect2.y;
+        }
+
+        // Spielaktualisierungslogik
+        function update() {
+            // Spieler-Blickrichtung aktualisieren
+            if (player.velocityX < 0) {
+                player.facingRight = false;
+            } else if (player.velocityX > 0) {
+                player.facingRight = true;
+            }
+
+            // Animationsframe aktualisieren, wenn in Bewegung
+            if (Math.abs(player.velocityX) > 0.1 && player.isGrounded) {
+                player.animationFrame += 1;
+            } else {
+                player.animationFrame = 0; // Animation zurücksetzen, wenn stillstehend oder springend
+            }
+
+            // Schwerkraft anwenden
+            player.velocityY += GRAVITY;
+            player.y += player.velocityY;
+
+            // Horizontale Bewegung mit Beschleunigung und Reibung
+            if (keys.left) {
+                player.velocityX = Math.max(player.velocityX - PLAYER_ACCELERATION, -MAX_PLAYER_SPEED);
+            } else if (keys.right) {
+                player.velocityX = Math.min(player.velocityX + PLAYER_ACCELERATION, MAX_PLAYER_SPEED);
+            } else {
+                // Reibung anwenden, wenn keine Taste gedrückt wird
+                player.velocityX *= PLAYER_FRICTION;
+                if (Math.abs(player.velocityX) < 0.1) player.velocityX = 0; // Komplett stoppen, wenn sehr langsam
+            }
+            player.x += player.velocityX;
+
+
+            // Kollision mit Spielobjekten
+            player.isGrounded = false;
+            for (let i = 0; i < gameObjects.length; i++) {
+                let obj = gameObjects[i];
+                // Nur Kollisionen mit "ground" und "platform" Typen prüfen
+                if (obj.type === 'ground' || obj.type === 'platform') {
+                    if (checkCollision(player, obj)) {
+                        // Kollision von oben (Landung auf Plattform)
+                        if (player.velocityY > 0 && player.y + player.height - player.velocityY <= obj.y) {
+                            player.y = obj.y - player.height;
+                            player.velocityY = 0;
+                            player.isGrounded = true;
+                            player.isJumping = false;
+                        }
+                        // Kollision von unten (Kopf stösst an Plattform)
+                        else if (player.velocityY < 0 && player.y - player.velocityY >= obj.y + obj.height) {
+                            player.y = obj.y + obj.height;
+                            player.velocityY = 0;
+                        }
+                    }
+                } else if (obj.type === 'obstacle') { // Kollision mit Hindernissen
+                    if (checkCollision(player, obj)) {
+                        // Horizontale Kollision (Seite des Hindernisses treffen)
+                        if (player.velocityX > 0 && player.x + player.width - player.velocityX <= obj.x) {
+                            player.x = obj.x - player.width;
+                            player.velocityX = 0; // Horizontale Bewegung stoppen
+                        } else if (player.velocityX < 0 && player.x - player.velocityX >= obj.x + obj.width) {
+                            player.x = obj.x + obj.width;
+                            player.velocityX = 0; // Horizontale Bewegung stoppen
+                        }
+                    }
+                }
+            }
+
+            // Spieler innerhalb der Weltgrenzen halten (linker Rand)
+            if (player.x < 0) {
+                player.x = 0;
+            }
+
+            // Sprunglogik
+            if (keys.jump && player.isGrounded) {
+                player.velocityY = JUMP_STRENGTH;
+                player.isJumping = true;
+                player.isGrounded = false; // Spieler ist beim Springen nicht mehr auf dem Boden
+            }
+
+            // Wenn Spieler vom unteren Rand des Canvas fällt (Game Over Bedingung)
+            if (player.y > canvas.height) {
+                showMessageBox('Oh nein! 🙁', 'Du bist ins Nichts gefallen! Versuch es nochmal!');
+                // Musik läuft weiter
+                return; // Spielaktualisierung stoppen
+            }
+
+            // Kollision mit Sammelobjekten
+            for (let i = 0; i < collectibles.length; i++) {
+                let collectible = collectibles[i];
+                if (!collectible.collected) {
+                    // Einfache Kreis-Rechteck-Kollision für Sammelobjekt
+                    const distSq = (player.x + player.width / 2 - collectible.x) ** 2 + (player.y + player.height / 2 - collectible.y) ** 2;
+                    if (distSq < (player.width / 2 + collectible.emojiSize / 2) ** 2) { // emojiSize für visuellen Radius verwenden
+                        collectible.collected = true;
+                        score++;
+                        scoreDisplay.textContent = score;
+                    }
+                }
+            }
+
+            // Kollision mit Ziellinie
+            if (checkCollision(player, finishLine)) {
+                showMessageBox('Ferien erreicht! 🎉', `Du hast das Ziel erreicht und ${score} Münzen gesammelt!`);
+                // Musik läuft weiter
+                return; // Spielaktualisierung stoppen
+            }
+
+            // Kamera-Offset aktualisieren, um Spieler zu folgen
+            // Kamera sanft zur Spielerposition bewegen, aber nicht über die Weltgrenzen hinaus
+            const targetCameraX = player.x - canvas.width / 2 + player.width / 2;
+            cameraOffsetX += (targetCameraX - cameraOffsetX) * CAMERA_SPEED_FACTOR;
+
+            // Kamera auf Weltgrenzen beschränken
+            const worldWidth = gameObjects[0].width; // Die Gesamtbreite des durchgehenden Bodens
+            if (cameraOffsetX < 0) cameraOffsetX = 0;
+            if (cameraOffsetX > worldWidth - canvas.width) cameraOffsetX = worldWidth - canvas.width;
+
+
+            // Nächsten Frame anfordern
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Spiel-Loop
+        function gameLoop() {
+            // Canvas leeren
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Himmel zeichnen (Hintergrund)
+            ctx.fillStyle = '#87ceeb';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Hintergrundelemente zeichnen (Wolken, Sonne, entfernte Objekte, Schilder)
+            drawBackgroundElements();
+
+            // Spielobjekte zeichnen (Plattformen, Hindernisse)
+            for (let i = 0; i < gameObjects.length; i++) {
+                drawObject(gameObjects[i]);
+            }
+
+            // Sammelobjekte zeichnen
+            for (let i = 0; i < collectibles.length; i++) {
+                drawCollectible(collectibles[i]);
+            }
+
+            // Ziellinie zeichnen
+            drawFinishLine();
+
+            // Spieler zeichnen
+            drawPlayer();
+
+            // Spielzustand aktualisieren
+            update();
+        }
+
+        // Event-Listener für Tastatur (für Desktop-Tests)
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'ArrowLeft') keys.left = true;
+            if (e.code === 'ArrowRight') keys.right = true;
+            if (e.code === 'Space' && !player.isJumping) keys.jump = true; // Nur springen, wenn nicht bereits gesprungen wird
+            startMusic(); // Versuche, Musik bei Tastendruck zu starten
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (e.code === 'ArrowLeft') keys.left = false;
+            if (e.code === 'ArrowRight') keys.right = false;
+            if (e.code === 'Space') keys.jump = false;
+        });
+
+        // Event-Listener für Touch/Buttons (für Mobilgeräte)
+        leftButton.addEventListener('touchstart', (e) => { e.preventDefault(); keys.left = true; startMusic(); });
+        leftButton.addEventListener('touchend', (e) => { e.preventDefault(); keys.left = false; });
+        leftButton.addEventListener('mousedown', (e) => { e.preventDefault(); keys.left = true; startMusic(); });
+        leftButton.addEventListener('mouseup', (e) => { e.preventDefault(); keys.left = false; });
+
+        jumpButton.addEventListener('touchstart', (e) => { e.preventDefault(); if (!player.isJumping) keys.jump = true; startMusic(); });
+        jumpButton.addEventListener('touchend', (e) => { e.preventDefault(); keys.jump = false; });
+        jumpButton.addEventListener('mousedown', (e) => { e.preventDefault(); if (!player.isJumping) keys.jump = true; startMusic(); });
+        jumpButton.addEventListener('mouseup', (e) => { e.preventDefault(); keys.jump = false; });
+
+        rightButton.addEventListener('touchstart', (e) => { e.preventDefault(); keys.right = true; startMusic(); });
+        rightButton.addEventListener('touchend', (e) => { e.preventDefault(); keys.right = false; });
+        rightButton.addEventListener('mousedown', (e) => { e.preventDefault(); keys.right = true; startMusic(); });
+        rightButton.addEventListener('mouseup', (e) => { e.preventDefault(); keys.right = false; });
+
+        // Event-Listener für Nachrichtenbox-Button (Spiel neustarten)
+        messageBoxButton.addEventListener('click', () => {
+            resetGame();
+            startMusic(); // Sicherstellen, dass die Musik neu startet, falls der Kontext gestoppt wurde oder es die erste Interaktion ist
+        });
+
+        // Spiel-Loop starten, wenn das Fenster geladen wird
+        window.onload = function() {
+            resetGame(); // Spielzustand und Level initialisieren
+            gameLoop(); // Animations-Loop starten
+            // Musik wird jetzt durch Benutzerinteraktion mit Buttons/Tasten gestartet
+        };
+    </script>
+</body>
+</html>
+�
